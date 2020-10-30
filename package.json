@@ -1,0 +1,23 @@
+{
+  "name": "sqlserver2cosmosdb",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oguzco/SQLServer2CosmosDB.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/oguzco/SQLServer2CosmosDB/issues"
+  },
+  "homepage": "https://github.com/oguzco/SQLServer2CosmosDB#readme",
+  "dependencies": {
+    "@azure/cosmos": "^3.9.2",
+    "mssql": "^4.2.1"
+  }
+}
