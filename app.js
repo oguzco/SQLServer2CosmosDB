@@ -65,7 +65,7 @@ let processNextRow = ()=>{
         if( queryError ){
             console.error(queryError);
             process.exit(-1);
-        }else{
+        }else if(queryResultsets.recordsets.length > 0 && queryResultsets.recordsets[0].length > 0){
             let row = queryResultsets.recordsets[0][0];
 
             cosmos
@@ -90,6 +90,13 @@ let processNextRow = ()=>{
                         await deleteRow( row[ process.env.SQL_TABLE_PK ] );
                     else
                         currentOffset++;
+                    setTimeout( processNextRow,0 );
+                }
+                //Request Size too large
+                else if(exc.code == 413){
+                    //skip this row
+                    currentOffset++;
+                    //continue
                     setTimeout( processNextRow,0 );
                 }
                 //Wait Required, Too Many Requests
