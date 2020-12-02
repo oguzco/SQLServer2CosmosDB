@@ -75,6 +75,7 @@ let processNextRow = async()=>{
 
     //Run The Query
     let queryResultsets = await new Promise(resolve => sqlRequest.query(query,(err,res) => resolve(err || res)));
+    let row = null;
 
     //Cosmos Stuff
     try{
@@ -94,7 +95,7 @@ let processNextRow = async()=>{
         }
 
         //Get That 1 row to be processed next
-        let row = queryResultsets.recordsets[0][0];
+        row = queryResultsets.recordsets[0][0];
 
         //Send Row To Cosmos
         let result = await new Promise( (resolve,reject) => cosmos.database( process.env.COSMOS_DATABASE ).container( process.env.COSMOS_CONTAINER ).items.upsert(row).then(resolve).catch(reject));
