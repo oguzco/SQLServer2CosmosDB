@@ -72,13 +72,22 @@ let processNextRow = async()=>{
     let sqlRequest = sqlPool.request();
     sqlRequest.input("OFFSET",currentOffset);
 
+
+    //Run The Query
+    let queryResultsets = await new Promise(resolve => sqlRequest.query(query,(err,res) => resolve(err || res)));
+
+    //Cosmos Stuff
     try{
-        //Run The Query
-        let queryStart = new Promise((resolve,reject) => sqlRequest.query(query).then(resolve).catch(reject));
-        let queryResultsets = await queryStart;
+        //Check Query Response
+        if( queryResultsets == null )
+            throw "Query response was null somehow";
+
+        //if no recordsets exist in the response, then it was an error...
+        if( queryResultsets.recordsets == null )
+            throw queryResultsets;
 
         //Query Ran Successfully but did not output any rows..
-        if( queryResultsets == null || queryResultsets.recordsets == null || queryResultsets.recordsets.length < 1 || queryResultsets.recordsets[0].length < 1 ){
+        if( queryResultsets.recordsets[0].length === 0 ){
             console.log("No records found in resultset",queryResultsets);
             setTimeout( processNextRow, 600000 );
             return;
@@ -87,66 +96,59 @@ let processNextRow = async()=>{
         //Get That 1 row to be processed next
         let row = queryResultsets.recordsets[0][0];
 
-        //Cosmos Stuff
-        try{
-            //Send Row To Cosmos
-            let result = await new Promise( (resolve,reject) => cosmos.database( process.env.COSMOS_DATABASE ).container( process.env.COSMOS_CONTAINER ).items.upsert(row).then(resolve).catch(reject));
+        //Send Row To Cosmos
+        let result = await new Promise( (resolve,reject) => cosmos.database( process.env.COSMOS_DATABASE ).container( process.env.COSMOS_CONTAINER ).items.upsert(row).then(resolve).catch(reject));
 
-            //Check result if it were actually successful
-            if( result == null || result.statusCode != 201 ){
-                //Log the strange result
-                console.error("Cosmos request failed somehow", result);
+        //Check result if it were actually successful
+        if( result == null || result.statusCode != 201 ){
+            //Log the strange result
+            console.error("Cosmos request failed somehow", result);
 
-                //Retry in 1 minute
-                setTimeout( processNextRow, 600000 );
-            }
-            else{
-                //No Exception occured so successfully completed
-                if( process.env.SQL_DELETE == "1" )
-                    await deleteRow( row[ process.env.SQL_TABLE_PK ] );
-                else
-                    currentOffset++;
-
-                //Get To Next Row
-                setTimeout( processNextRow,0 );
-            }    
+            //Retry in 1 minute
+            setTimeout( processNextRow, 600000 );
         }
-        catch(exc){
-            //Conflict
-            if(exc.code == 409){
-                //Update or Override or Merge
-
-                //Continue directly
-                if( process.env.SQL_DELETE == "1" )
-                    await deleteRow( row[ process.env.SQL_TABLE_PK ] );
-                else
-                    currentOffset++;
-                setTimeout( processNextRow,0 );
-            }
-            //Request Size too large
-            else if(exc.code == 413){
-                //skip this row
+        else{
+            //No Exception occured so successfully completed
+            if( process.env.SQL_DELETE == "1" )
+                await deleteRow( row[ process.env.SQL_TABLE_PK ] );
+            else
                 currentOffset++;
-                //continue
-                setTimeout( processNextRow,0 );
-            }
-            //Wait Required, Too Many Requests
-            else if(exc.code == 429) {
-                setTimeout( processNextRow,10000 );
-            }
-            //Unhandled yet
-            else{
-                console.log(exc.code);
-                console.error(exc);
-                process.exit(-1);
-            }
+
+            //Get To Next Row
+            setTimeout( processNextRow,0 );
+        }    
+    }
+    catch(exc){
+        //Conflict
+        if(exc.code == 409){
+            //Update or Override or Merge
+
+            //Continue directly
+            if( process.env.SQL_DELETE == "1" )
+                await deleteRow( row[ process.env.SQL_TABLE_PK ] );
+            else
+                currentOffset++;
+            setTimeout( processNextRow,0 );
+        }
+        //Request Size too large
+        else if(exc.code == 413){
+            //skip this row
+            currentOffset++;
+            //continue
+            setTimeout( processNextRow,0 );
+        }
+        //Wait Required, Too Many Requests
+        else if(exc.code == 429) {
+            setTimeout( processNextRow,10000 );
+        }
+        //Unhandled yet
+        else{
+            console.log(exc.code);
+            console.error(exc);
+            process.exit(-1);
         }
     }
-    catch(queryError){
-        //Query Caused Some Error Somehow, No Need To Continue
-        console.error(queryError);
-        process.exit(-1);
-    }
+
 };
 
 sqlPool.connect().catch(console.error).then(processNextRow);
