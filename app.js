@@ -1,3 +1,4 @@
+//pm2 start blabla.sh -o /dev/null -e /dev/null --name Migrate_ --restart-delay 10000
 const CosmosClient = require('@azure/cosmos').CosmosClient;
 const sql = require("mssql");
 
